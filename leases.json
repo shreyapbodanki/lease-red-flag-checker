@@ -1,0 +1,647 @@
+{
+ "about": "labeled test leases for lease red-flag checker. each clause is marked flag (conflicts with the virginia residential landlord and tenant act and should be flagged), ok (should not be flagged), or either (legal but unfavorable, or arguable; reported but not scored). lease titles are for humans and are never sent to the model. not legal advice.",
+ "leases": [
+  {
+   "id": "L01",
+   "title": "Clearly unfair studio lease",
+   "rent": 1200,
+   "clauses": [
+    {
+     "text": "Rent is $1,200 per month, due on the 1st of each month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard rent term"
+    },
+    {
+     "text": "Tenant shall pay a security deposit of $4,500 before move-in.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "deposit over 2 months' rent (55.1-1226)"
+    },
+    {
+     "text": "Landlord may enter the premises at any time without notice.",
+     "label": "flag",
+     "category": "entry",
+     "why": "no notice for entry (55.1-1229)"
+    },
+    {
+     "text": "Tenant waives all rights to request repairs and accepts the unit as-is.",
+     "label": "flag",
+     "category": "repairs",
+     "why": "waives habitability duty (55.1-1220, 55.1-1208)"
+    },
+    {
+     "text": "Tenant shall pay all of Landlord's attorney fees in any dispute regardless of outcome.",
+     "label": "flag",
+     "category": "waiver",
+     "why": "prohibited fee shifting (55.1-1208)"
+    },
+    {
+     "text": "Trash must be placed in the dumpster behind the building.",
+     "label": "ok",
+     "category": "other",
+     "why": "ordinary rule"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Rent is $1,200 per month, due on the 1st of each month.\n\n2. Tenant shall pay a security deposit of $4,500 before move-in.\n\n3. Landlord may enter the premises at any time without notice.\n\n4. Tenant waives all rights to request repairs and accepts the unit as-is.\n\n5. Tenant shall pay all of Landlord's attorney fees in any dispute regardless of outcome.\n\n6. Trash must be placed in the dumpster behind the building."
+  },
+  {
+   "id": "L02",
+   "title": "Fair apartment lease (should flag little or nothing)",
+   "rent": 1000,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,000, due on the 1st. Rent is late if not received by the 5th.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Tenant shall pay a security deposit of $1,000, equal to one month's rent.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "within 2-month cap"
+    },
+    {
+     "text": "Landlord will return the security deposit, less itemized deductions, within 45 days after the tenant moves out.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "matches 45-day rule"
+    },
+    {
+     "text": "A late fee of $50 applies to rent received after the 5th.",
+     "label": "ok",
+     "category": "fees",
+     "why": "5% of rent, under 10% cap"
+    },
+    {
+     "text": "Landlord will give at least 24 hours' notice before entering, except in emergencies.",
+     "label": "either",
+     "category": "entry",
+     "why": "24h is reasonable for most entry but VA needs 72h for routine maintenance (55.1-1229) (judgment call, not scored)"
+    },
+    {
+     "text": "Landlord is responsible for repairs to plumbing, heating, electrical systems, and appliances provided by Landlord.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "landlord keeps unit fit"
+    },
+    {
+     "text": "Either party may end the lease at the end of the term with 60 days' written notice.",
+     "label": "ok",
+     "category": "renewal",
+     "why": "reasonable notice"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,000, due on the 1st. Rent is late if not received by the 5th.\n\n2. Tenant shall pay a security deposit of $1,000, equal to one month's rent.\n\n3. Landlord will return the security deposit, less itemized deductions, within 45 days after the tenant moves out.\n\n4. A late fee of $50 applies to rent received after the 5th.\n\n5. Landlord will give at least 24 hours' notice before entering, except in emergencies.\n\n6. Landlord is responsible for repairs to plumbing, heating, electrical systems, and appliances provided by Landlord.\n\n7. Either party may end the lease at the end of the term with 60 days' written notice."
+  },
+  {
+   "id": "L03",
+   "title": "Hidden fees lease",
+   "rent": 1050,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,050, due on the 1st.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Late rent incurs a fee of $150, plus $20 per day until paid in full.",
+     "label": "flag",
+     "category": "fees",
+     "why": "over 10% cap (55.1-1204)"
+    },
+    {
+     "text": "Tenant agrees to a non-refundable cleaning fee of $400 regardless of the condition of the unit at move-out.",
+     "label": "either",
+     "category": "fees",
+     "why": "non-refundable fee regardless of condition; unfavorable but not clearly illegal (judgment call, not scored)"
+    },
+    {
+     "text": "Tenant shall pay a deposit of $1,050.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "one month"
+    },
+    {
+     "text": "Water and trash are billed back to tenant at a rate determined by Landlord.",
+     "label": "either",
+     "category": "fees",
+     "why": "vague, landlord sets rate (judgment call, not scored)"
+    },
+    {
+     "text": "Quiet hours are from 11 p.m. to 7 a.m.",
+     "label": "ok",
+     "category": "other",
+     "why": "ordinary rule"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,050, due on the 1st.\n\n2. Late rent incurs a fee of $150, plus $20 per day until paid in full.\n\n3. Tenant agrees to a non-refundable cleaning fee of $400 regardless of the condition of the unit at move-out.\n\n4. Tenant shall pay a deposit of $1,050.\n\n5. Water and trash are billed back to tenant at a rate determined by Landlord.\n\n6. Quiet hours are from 11 p.m. to 7 a.m."
+  },
+  {
+   "id": "L04",
+   "title": "Early termination and renewal traps",
+   "rent": 950,
+   "clauses": [
+    {
+     "text": "Monthly rent is $950, due on the 1st of each month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "If Tenant leaves early, Tenant owes all remaining rent for the full lease term, even if the unit is re-rented.",
+     "label": "flag",
+     "category": "other",
+     "why": "ignores duty to mitigate"
+    },
+    {
+     "text": "This lease automatically renews for another 12-month term unless Tenant gives written notice at least 120 days before the end date.",
+     "label": "either",
+     "category": "renewal",
+     "why": "long, easy-to-miss auto renewal; legal but a trap (judgment call, not scored)"
+    },
+    {
+     "text": "Rent may increase by any amount upon renewal at Landlord's sole discretion without notice.",
+     "label": "either",
+     "category": "renewal",
+     "why": "surprise rent increase on renewal; a trap but not clearly illegal (judgment call, not scored)"
+    },
+    {
+     "text": "Tenant may keep one cat with Landlord's written approval.",
+     "label": "ok",
+     "category": "other",
+     "why": "ordinary pet rule"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $950, due on the 1st of each month.\n\n2. If Tenant leaves early, Tenant owes all remaining rent for the full lease term, even if the unit is re-rented.\n\n3. This lease automatically renews for another 12-month term unless Tenant gives written notice at least 120 days before the end date.\n\n4. Rent may increase by any amount upon renewal at Landlord's sole discretion without notice.\n\n5. Tenant may keep one cat with Landlord's written approval."
+  },
+  {
+   "id": "L05",
+   "title": "Liability and self-help lease",
+   "rent": 1100,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,100, payable through the online portal.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Landlord shall not be liable for any injury or damage to Tenant or Tenant's property, even if caused by Landlord's negligence.",
+     "label": "flag",
+     "category": "waiver",
+     "why": "limits landlord liability (55.1-1208)"
+    },
+    {
+     "text": "If rent is more than 3 days late, Landlord may change the locks and remove Tenant's belongings without a court order.",
+     "label": "flag",
+     "category": "waiver",
+     "why": "landlord can't take possession by refusing access without a court order (55.1-1252)"
+    },
+    {
+     "text": "Tenant agrees to waive all rights under the Virginia Residential Landlord and Tenant Act.",
+     "label": "flag",
+     "category": "waiver",
+     "why": "waiver of VRLTA rights (55.1-1208)"
+    },
+    {
+     "text": "Tenant is responsible for damage caused by Tenant or Tenant's guests beyond normal wear and tear.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "fair, tenant-caused damage"
+    },
+    {
+     "text": "Smoking is not allowed inside the unit.",
+     "label": "ok",
+     "category": "other",
+     "why": "ordinary rule"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,100, payable through the online portal.\n\n2. Landlord shall not be liable for any injury or damage to Tenant or Tenant's property, even if caused by Landlord's negligence.\n\n3. If rent is more than 3 days late, Landlord may change the locks and remove Tenant's belongings without a court order.\n\n4. Tenant agrees to waive all rights under the Virginia Residential Landlord and Tenant Act.\n\n5. Tenant is responsible for damage caused by Tenant or Tenant's guests beyond normal wear and tear.\n\n6. Smoking is not allowed inside the unit."
+  },
+  {
+   "id": "L06",
+   "title": "Deposit timing issues",
+   "rent": 900,
+   "clauses": [
+    {
+     "text": "Monthly rent is $900.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Tenant shall pay a security deposit of $1,800.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "exactly 2 months, allowed"
+    },
+    {
+     "text": "Landlord will return the security deposit within 90 days after Tenant moves out.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "longer than 45 days (55.1-1226)"
+    },
+    {
+     "text": "Landlord may keep the entire deposit if Tenant does not professionally clean the carpets, regardless of their condition.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "deposit may be applied solely to listed purposes, not forfeited regardless of condition (55.1-1226)"
+    },
+    {
+     "text": "Tenant will receive a move-in inspection report within 5 days of move-in.",
+     "label": "ok",
+     "category": "other",
+     "why": "tenant-friendly"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $900.\n\n2. Tenant shall pay a security deposit of $1,800.\n\n3. Landlord will return the security deposit within 90 days after Tenant moves out.\n\n4. Landlord may keep the entire deposit if Tenant does not professionally clean the carpets, regardless of their condition.\n\n5. Tenant will receive a move-in inspection report within 5 days of move-in."
+  },
+  {
+   "id": "L07",
+   "title": "Repairs pushed onto the tenant",
+   "rent": 1300,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,300, due on the first day of each month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Tenant is responsible for all repairs to the unit, including heating, plumbing, and electrical systems, no matter the cause.",
+     "label": "flag",
+     "category": "repairs",
+     "why": "shifts landlord duty (55.1-1220, 55.1-1208 C)"
+    },
+    {
+     "text": "Tenant shall pay for all pest control treatments during the lease term.",
+     "label": "either",
+     "category": "repairs",
+     "why": "landlord duty to keep fit (judgment call, not scored)"
+    },
+    {
+     "text": "Landlord will respond to emergency maintenance requests within 24 hours.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "tenant-friendly"
+    },
+    {
+     "text": "Tenant must replace HVAC filters every three months.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "common minor tenant duty"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,300, due on the first day of each month.\n\n2. Tenant is responsible for all repairs to the unit, including heating, plumbing, and electrical systems, no matter the cause.\n\n3. Tenant shall pay for all pest control treatments during the lease term.\n\n4. Landlord will respond to emergency maintenance requests within 24 hours.\n\n5. Tenant must replace HVAC filters every three months."
+  },
+  {
+   "id": "L08",
+   "title": "Mostly fair lease with one problem",
+   "rent": 1150,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,150, due on the 1st of each month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Tenant shall pay a security deposit of $1,150, which will be held in accordance with Virginia law.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "one month"
+    },
+    {
+     "text": "A late fee of 5% of the monthly rent applies to rent paid after the 5th.",
+     "label": "ok",
+     "category": "fees",
+     "why": "under cap"
+    },
+    {
+     "text": "Landlord will provide at least 72 hours' notice before routine maintenance not requested by Tenant.",
+     "label": "ok",
+     "category": "entry",
+     "why": "matches 55.1-1229"
+    },
+    {
+     "text": "Landlord may enter at any time to show the unit to prospective tenants without notifying Tenant.",
+     "label": "flag",
+     "category": "entry",
+     "why": "no notice"
+    },
+    {
+     "text": "Tenant must give 30 days' written notice before moving out at the end of the term.",
+     "label": "ok",
+     "category": "renewal",
+     "why": "reasonable"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,150, due on the 1st of each month.\n\n2. Tenant shall pay a security deposit of $1,150, which will be held in accordance with Virginia law.\n\n3. A late fee of 5% of the monthly rent applies to rent paid after the 5th.\n\n4. Landlord will provide at least 72 hours' notice before routine maintenance not requested by Tenant.\n\n5. Landlord may enter at any time to show the unit to prospective tenants without notifying Tenant.\n\n6. Tenant must give 30 days' written notice before moving out at the end of the term."
+  },
+  {
+   "id": "L09",
+   "title": "Student house with fee stacking",
+   "rent": 700,
+   "clauses": [
+    {
+     "text": "Each tenant pays $700 per month for a private bedroom.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Each tenant pays a non-refundable administrative fee of $300 and a non-refundable amenity fee of $250 at signing.",
+     "label": "either",
+     "category": "fees",
+     "why": "large non-refundable fees; unfavorable but not clearly illegal (judgment call, not scored)"
+    },
+    {
+     "text": "Each tenant pays a security deposit of $700.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "one month"
+    },
+    {
+     "text": "All tenants are jointly responsible for any unpaid rent of any other tenant.",
+     "label": "either",
+     "category": "other",
+     "why": "joint liability worth flagging for students (judgment call, not scored)"
+    },
+    {
+     "text": "Guests may not stay more than 3 nights in any 30-day period without written permission from Landlord.",
+     "label": "either",
+     "category": "other",
+     "why": "restrictive guest rule (judgment call, not scored)"
+    },
+    {
+     "text": "Tenants may park up to two vehicles in the driveway.",
+     "label": "ok",
+     "category": "other",
+     "why": "ordinary rule"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Each tenant pays $700 per month for a private bedroom.\n\n2. Each tenant pays a non-refundable administrative fee of $300 and a non-refundable amenity fee of $250 at signing.\n\n3. Each tenant pays a security deposit of $700.\n\n4. All tenants are jointly responsible for any unpaid rent of any other tenant.\n\n5. Guests may not stay more than 3 nights in any 30-day period without written permission from Landlord.\n\n6. Tenants may park up to two vehicles in the driveway."
+  },
+  {
+   "id": "L10",
+   "title": "Short fair sublease",
+   "rent": 800,
+   "clauses": [
+    {
+     "text": "Subtenant will pay $800 per month to Tenant for June through August.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Subtenant will pay a deposit of $800, returned within 30 days after move-out.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "within limits"
+    },
+    {
+     "text": "Subtenant will follow all rules of the original lease.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Landlord will give 24 hours' notice before entering except in emergencies.",
+     "label": "either",
+     "category": "entry",
+     "why": "24h is reasonable for most entry but VA needs 72h for routine maintenance (55.1-1229) (judgment call, not scored)"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Subtenant will pay $800 per month to Tenant for June through August.\n\n2. Subtenant will pay a deposit of $800, returned within 30 days after move-out.\n\n3. Subtenant will follow all rules of the original lease.\n\n4. Landlord will give 24 hours' notice before entering except in emergencies."
+  },
+  {
+   "id": "L11",
+   "title": "Dense legalese, several violations",
+   "rent": 1000,
+   "clauses": [
+    {
+     "text": "Lessee shall pay to Lessor monthly rent in the amount of One Thousand Dollars ($1,000.00), due on or before the first (1st) day of each calendar month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Lessee shall remit a security deposit in an amount equal to three (3) months' rent prior to occupancy.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "3 months is over the 2-month cap (55.1-1226)"
+    },
+    {
+     "text": "Lessor shall have the right to access the Premises at all times and for any purpose at Lessor's sole discretion.",
+     "label": "flag",
+     "category": "entry",
+     "why": "no notice requirement (55.1-1229)"
+    },
+    {
+     "text": "Lessee hereby releases Lessor from any and all claims arising from Lessor's acts or omissions, including Lessor's negligence.",
+     "label": "flag",
+     "category": "waiver",
+     "why": "limits landlord liability (55.1-1208)"
+    },
+    {
+     "text": "Lessee hereby authorizes any attorney to confess judgment against Lessee for any amounts due under this Lease.",
+     "label": "flag",
+     "category": "waiver",
+     "why": "confession of judgment is prohibited (55.1-1208)"
+    },
+    {
+     "text": "A late charge of twelve percent (12%) of the monthly rent shall be assessed on any payment received after the fifth (5th) day of the month.",
+     "label": "flag",
+     "category": "fees",
+     "why": "12% is over the 10% cap (55.1-1204)"
+    },
+    {
+     "text": "Lessee shall maintain renter's insurance with liability coverage of at least $100,000 throughout the term.",
+     "label": "ok",
+     "category": "other",
+     "why": "requiring the tenant's own renter's insurance is common"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Lessee shall pay to Lessor monthly rent in the amount of One Thousand Dollars ($1,000.00), due on or before the first (1st) day of each calendar month.\n\n2. Lessee shall remit a security deposit in an amount equal to three (3) months' rent prior to occupancy.\n\n3. Lessor shall have the right to access the Premises at all times and for any purpose at Lessor's sole discretion.\n\n4. Lessee hereby releases Lessor from any and all claims arising from Lessor's acts or omissions, including Lessor's negligence.\n\n5. Lessee hereby authorizes any attorney to confess judgment against Lessee for any amounts due under this Lease.\n\n6. A late charge of twelve percent (12%) of the monthly rent shall be assessed on any payment received after the fifth (5th) day of the month.\n\n7. Lessee shall maintain renter's insurance with liability coverage of at least $100,000 throughout the term."
+  },
+  {
+   "id": "L12",
+   "title": "Numbers right at the legal limits",
+   "rent": 1000,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,000, due on the 1st.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Tenant shall pay a security deposit of $2,000.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "exactly 2 months, allowed (55.1-1226)"
+    },
+    {
+     "text": "A late fee of $100 applies to rent received after the 5th.",
+     "label": "ok",
+     "category": "fees",
+     "why": "exactly 10%, allowed (55.1-1204)"
+    },
+    {
+     "text": "If Tenant has a pet, Tenant shall also pay a refundable pet deposit of $500 in addition to the security deposit.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "pet deposits count as security deposits (55.1-1200), so the total is over 2 months' rent (55.1-1226)"
+    },
+    {
+     "text": "Landlord will return the security deposit with an itemized list of deductions within 60 days after move-out.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "longer than 45 days (55.1-1226)"
+    },
+    {
+     "text": "Tenant will receive written notice of any deductions from the deposit.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "tenant-friendly"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,000, due on the 1st.\n\n2. Tenant shall pay a security deposit of $2,000.\n\n3. A late fee of $100 applies to rent received after the 5th.\n\n4. If Tenant has a pet, Tenant shall also pay a refundable pet deposit of $500 in addition to the security deposit.\n\n5. Landlord will return the security deposit with an itemized list of deductions within 60 days after move-out.\n\n6. Tenant will receive written notice of any deductions from the deposit."
+  },
+  {
+   "id": "L13",
+   "title": "Fair lease written in legalese",
+   "rent": 1100,
+   "clauses": [
+    {
+     "text": "Lessee shall pay rent of One Thousand One Hundred Dollars ($1,100.00) per month in advance on the first (1st) day of each month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Lessee shall deposit with Lessor a security deposit equal to one (1) month's rent, which shall be returned, less itemized deductions, within forty-five (45) days after termination of tenancy.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "one month, 45 days (55.1-1226)"
+    },
+    {
+     "text": "Lessor shall provide Lessee not less than seventy-two (72) hours' notice prior to entry for routine maintenance not requested by Lessee, except in an emergency.",
+     "label": "ok",
+     "category": "entry",
+     "why": "matches 55.1-1229"
+    },
+    {
+     "text": "Lessor shall maintain the Premises in a fit and habitable condition in accordance with Va. Code § 55.1-1220.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "landlord duty, compliant"
+    },
+    {
+     "text": "Lessee shall be liable for damage to the Premises caused by the negligence of Lessee or Lessee's invitees, ordinary wear and tear excepted.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "fair, tenant-caused damage"
+    },
+    {
+     "text": "In any action arising under this Lease, the prevailing party may recover reasonable attorney fees as permitted by law.",
+     "label": "ok",
+     "category": "waiver",
+     "why": "prevailing-party fees are allowed"
+    },
+    {
+     "text": "A late charge not to exceed five percent (5%) of the monthly rent may be assessed on rent received after the fifth (5th) day of the month.",
+     "label": "ok",
+     "category": "fees",
+     "why": "under the 10% cap"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Lessee shall pay rent of One Thousand One Hundred Dollars ($1,100.00) per month in advance on the first (1st) day of each month.\n\n2. Lessee shall deposit with Lessor a security deposit equal to one (1) month's rent, which shall be returned, less itemized deductions, within forty-five (45) days after termination of tenancy.\n\n3. Lessor shall provide Lessee not less than seventy-two (72) hours' notice prior to entry for routine maintenance not requested by Lessee, except in an emergency.\n\n4. Lessor shall maintain the Premises in a fit and habitable condition in accordance with Va. Code § 55.1-1220.\n\n5. Lessee shall be liable for damage to the Premises caused by the negligence of Lessee or Lessee's invitees, ordinary wear and tear excepted.\n\n6. In any action arising under this Lease, the prevailing party may recover reasonable attorney fees as permitted by law.\n\n7. A late charge not to exceed five percent (5%) of the monthly rent may be assessed on rent received after the fifth (5th) day of the month."
+  },
+  {
+   "id": "L14",
+   "title": "Repairs and habitability, reworded",
+   "rent": 1250,
+   "clauses": [
+    {
+     "text": "Monthly rent is $1,250, due on the 1st of each month.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "Tenant shall bear the cost of any repair under $500, regardless of cause.",
+     "label": "flag",
+     "category": "repairs",
+     "why": "charges tenant for repairs they did not cause (55.1-1208 C)"
+    },
+    {
+     "text": "Landlord is not obligated to provide or maintain heat, hot water, or air conditioning.",
+     "label": "flag",
+     "category": "repairs",
+     "why": "landlord must maintain essential services (55.1-1220)"
+    },
+    {
+     "text": "Tenant must report water leaks to Landlord within 48 hours of noticing them.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "ordinary tenant duty"
+    },
+    {
+     "text": "Landlord will repair any condition affecting health or safety within a reasonable time after written notice.",
+     "label": "ok",
+     "category": "repairs",
+     "why": "tenant-friendly"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Monthly rent is $1,250, due on the 1st of each month.\n\n2. Tenant shall bear the cost of any repair under $500, regardless of cause.\n\n3. Landlord is not obligated to provide or maintain heat, hot water, or air conditioning.\n\n4. Tenant must report water leaks to Landlord within 48 hours of noticing them.\n\n5. Landlord will repair any condition affecting health or safety within a reasonable time after written notice."
+  },
+  {
+   "id": "L15",
+   "title": "Typical student lease with judgment calls",
+   "rent": 650,
+   "clauses": [
+    {
+     "text": "Each resident pays $650 per month for a private bedroom in a 4-bedroom unit.",
+     "label": "ok",
+     "category": "other",
+     "why": "standard"
+    },
+    {
+     "text": "All residents are jointly and severally liable for the full rent of the unit.",
+     "label": "either",
+     "category": "other",
+     "why": "common in student housing but risky (judgment call, not scored)"
+    },
+    {
+     "text": "Tenant may not withhold rent for any reason.",
+     "label": "either",
+     "category": "waiver",
+     "why": "VA requires a court rent-escrow process rather than withholding, so this is arguable (judgment call, not scored)"
+    },
+    {
+     "text": "Each resident pays a security deposit of $650.",
+     "label": "ok",
+     "category": "deposit",
+     "why": "one month"
+    },
+    {
+     "text": "Landlord may enter the unit to make repairs requested by Tenant without additional notice.",
+     "label": "ok",
+     "category": "entry",
+     "why": "tenant-requested repairs are an exception (55.1-1229)"
+    },
+    {
+     "text": "If any resident moves out early, Landlord may keep that resident's entire deposit as a penalty, in addition to collecting rent until the unit is re-rented.",
+     "label": "flag",
+     "category": "deposit",
+     "why": "deposit used as a penalty rather than for actual damages or unpaid rent (55.1-1226)"
+    }
+   ],
+   "text": "RESIDENTIAL LEASE AGREEMENT\nPremises: Blacksburg, VA 24060\n\n1. Each resident pays $650 per month for a private bedroom in a 4-bedroom unit.\n\n2. All residents are jointly and severally liable for the full rent of the unit.\n\n3. Tenant may not withhold rent for any reason.\n\n4. Each resident pays a security deposit of $650.\n\n5. Landlord may enter the unit to make repairs requested by Tenant without additional notice.\n\n6. If any resident moves out early, Landlord may keep that resident's entire deposit as a penalty, in addition to collecting rent until the unit is re-rented."
+  }
+ ]
+}
