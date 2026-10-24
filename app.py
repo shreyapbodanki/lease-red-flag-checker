@@ -1,104 +1,11 @@
-import os
+import base64
 import html
-import json
-import re
 
-import pymupdf
 import streamlit as st
-from google import genai
 from google.genai import types
 
-# gemma 4 via gemini api
-MODEL = "gemma-4-26b-a4b-it"
-MAX_PAGES = 8
-
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
-PROMPT = """You are a tenant-rights assistant for renters in Virginia, USA.
-Read the lease provided (as page images and/or text). Find clauses that may be
-unfair to the tenant or may conflict with the Virginia Residential Landlord and
-Tenant Act (VRLTA). Examples of things worth flagging:
-- security deposit above two months' rent, or no clear return timeline
-- landlord entry without reasonable advance notice
-- tenant waiving legal rights or the landlord's duty to make repairs
-- tenant paying the landlord's attorney fees no matter who wins
-- unusually high or vague fees (late fees, cleaning, "admin")
-- automatic renewal or penalties that are easy to miss
-
-Rules:
-- Quote the exact clause text (short) so the user can find it.
-- Use cautious language ("may", "could"). This is not legal advice.
-- If nothing is concerning, return an empty flags list.
-
-Return ONLY valid JSON in this exact shape:
-{
-  "summary": "2-3 sentence plain-English overview of the lease",
-  "flags": [
-    {
-      "clause_quote": "exact short quote from the lease",
-      "category": "deposit | entry | repairs | fees | waiver | renewal | other",
-      "severity": "high | medium | low",
-      "why": "plain-English explanation for a student renter",
-      "question_for_landlord": "one polite question the tenant could ask"
-    }
-  ]
-}"""
-
-
-# turn pdf pages into png bytes
-def pdf_to_images(data):
-    doc = pymupdf.open(stream=data, filetype="pdf")
-    pages = []
-    for i, page in enumerate(doc):
-        if i >= MAX_PAGES:
-            break
-        pages.append(page.get_pixmap(dpi=150).tobytes("png"))
-    return pages
-
-
-# pull plain text for the highlighted view
-def pdf_to_text(data):
-    doc = pymupdf.open(stream=data, filetype="pdf")
-    return "\n".join(page.get_text() for i, page in enumerate(doc) if i < MAX_PAGES)
-
-
-# pull json out even if model wraps it in text
-def parse_json(text):
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        raise
-
-
-def analyze(parts):
-    resp = client.models.generate_content(
-        model=MODEL,
-        contents=parts + [PROMPT],
-        config=types.GenerateContentConfig(
-            temperature=0.2,
-            response_mime_type="application/json",
-        ),
-    )
-    return normalize(parse_json(resp.text))
-
-
-# gemma sometimes returns a list instead of the object
-def normalize(data):
-    if isinstance(data, dict):
-        data.setdefault("summary", "")
-        data.setdefault("flags", [])
-        return data
-    if isinstance(data, list):
-        # [ {summary, flags} ]
-        if len(data) == 1 and isinstance(data[0], dict) and "flags" in data[0]:
-            return normalize(data[0])
-        # list of flags only
-        flags = [d for d in data if isinstance(d, dict)]
-        return {"summary": "", "flags": flags}
-    return {"summary": str(data), "flags": []}
+from lease_core import (SAMPLE_LEASE, SEV, analyze, build_email, find_span, highlight_pdf,
+                        pdf_to_images, pdf_to_text, safety_score, score_label)
 
 
 # stop streamlit reading $ as latex math
@@ -106,105 +13,205 @@ def md(text):
     return str(text).replace("$", "\\$")
 
 
-def build_email(flags):
-    lines = ["Hi,", "",
-             "Thanks for sending over the lease. Before signing, I had a few questions:", ""]
-    for i, f in enumerate(flags, 1):
-        lines.append(f"{i}. {f.get('question_for_landlord', '')}")
-    lines += ["", "Thanks so much!"]
-    return "\n".join(lines)
-
-
-# 100 = clean, each flag knocks points off
-def safety_score(flags):
-    cost = {"high": 18, "medium": 8, "low": 3}
-    return max(5, 100 - sum(cost.get(f.get("severity", "low"), 3) for f in flags))
-
-
-def score_label(score):
-    if score >= 80:
-        return "Looks pretty fair", "#16a34a"
-    if score >= 50:
-        return "A few things to ask about", "#d97706"
-    return "Read carefully before signing", "#dc2626"
-
-
-SAMPLE_LEASE = """RESIDENTIAL LEASE AGREEMENT
-Premises: 123 Example St, Apt 4, Blacksburg, VA 24060
-
-1. RENT. Tenant agrees to pay $1,200 per month, due on the 1st of each month.
-
-2. SECURITY DEPOSIT. Tenant shall pay a security deposit of $4,500 before move-in.
-
-3. ACCESS. Landlord may enter the premises at any time without notice.
-
-4. MAINTENANCE. Tenant waives all rights to request repairs and accepts the unit as-is.
-
-5. LEGAL FEES. Tenant shall pay all of Landlord's attorney fees in any dispute regardless of outcome.
-
-6. LATE FEES. A $75 administrative fee applies to all late payments plus $25 per day.
-
-7. RENEWAL. This lease automatically renews for 12 months unless tenant gives 120 days' written notice.
-
-8. SNOW. Tenant is responsible for snow removal on the front walkway."""
-
-SEV = {
-    "high": ("High", "#dc2626", "#fef2f2", "#fecaca"),
-    "medium": ("Medium", "#d97706", "#fff7ed", "#fed7aa"),
-    "low": ("Low", "#a16207", "#fefce8", "#fef08a"),
-}
-
 CAT_ICON = {
     "deposit": "💰", "entry": "🚪", "repairs": "🔧", "fees": "🧾",
     "waiver": "⚖️", "renewal": "🔁", "other": "📌",
 }
 
+# va code sections checked by hand on law.lis.virginia.gov
+VA_CODE = "https://law.lis.virginia.gov/vacode/title55.1/chapter12/section{}/"
+LAWS = {
+    "deposit": ("55.1-1226", "Deposits max 2 months' rent, returned within 45 days"),
+    "entry": ("55.1-1229", "Landlord must give notice before entering"),
+    "repairs": ("55.1-1220", "Landlord must keep the unit fit and livable"),
+    "fees": ("55.1-1204", "Late fees capped at 10% of rent"),
+    "waiver": ("55.1-1208", "Lease terms that aren't allowed"),
+}
+HANDBOOK = "https://dhcd.virginia.gov/landlord-tenant-resources"
+
+HELP = [
+    ("🎓", "VT Student Legal Services", "Free lease reviews for Virginia Tech students", "https://legal.uss.vt.edu/"),
+    ("🤝", "Virginia Legal Aid", "Free civil legal help if you qualify", "https://www.valegalaid.org/"),
+    ("📘", "VA Landlord-Tenant Handbook", "Official guide to your rights from DHCD", HANDBOOK),
+]
+
 CSS = """
 <style>
-.block-container {max-width: 880px; padding-top: 2rem; padding-bottom: 4rem;}
-#MainMenu, footer {visibility: hidden;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root {
+  --bg: #ffffff; --text: #0a0a0a; --body: #3f3f46; --muted: #71717a; --faint: #a1a1aa;
+  --border: #e4e4e7; --soft: #fafafa; --card: #ffffff; --track: #f1f1f3;
+  --yellow: #ffd60a; --yellow-soft: #fff6c2; --yellow-ink: #6b5900;
+  --paper: #ffffff; --paper-border: #e4e4e7;
+  --ask: #0a0a0a; --ask-bg: #fff9db; --link: #0a0a0a;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -16px rgba(0,0,0,.18);
+}
 
-.hero {background: linear-gradient(135deg, #065f46 0%, #059669 55%, #34d399 100%);
-  border-radius: 22px; padding: 2rem 2rem 1.6rem; color: white; margin-bottom: 1.4rem;
-  box-shadow: 0 12px 32px -12px rgba(5,150,105,.5);}
-.hero h1 {color: white; font-size: 2.3rem; font-weight: 800; margin: 0 0 .3rem; padding: 0;}
-.hero p {color: rgba(255,255,255,.9); font-size: 1.08rem; margin: 0 0 1rem;}
-.chip {display: inline-block; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3);
-  border-radius: 999px; padding: .25rem .75rem; font-size: .82rem; margin: 0 .35rem .35rem 0;}
+/* base */
+.stApp {background: var(--bg) !important;}
+.stApp, .stApp p, .stApp li, .stApp label, .stApp button, .stApp textarea, .stApp input,
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .card, .flag, .step, .hero, .help, .tip {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;}
+header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
+[data-testid="stStatusWidget"], #MainMenu, footer {display: none !important;}
+.block-container {max-width: 1160px !important; padding-top: 2.4rem !important; padding-bottom: 4rem;}
+[data-testid="stElementContainer"]:has(.input-anchor), [data-testid="stElementContainer"]:has(.side-anchor),
+[data-testid="stElementContainer"]:has(.lease-anchor) {display: none;}
+a {color: var(--link);}
 
-.card {background: white; border: 1px solid #e5e7eb; border-radius: 18px; padding: 1.4rem 1.5rem;
-  box-shadow: 0 4px 18px -10px rgba(17,24,39,.18); margin-bottom: 1rem;}
-.overview {display: flex; gap: 1.6rem; align-items: center; flex-wrap: wrap;}
-.overview .txt {flex: 1; min-width: 240px;}
-.overview .lbl {font-size: 1.25rem; font-weight: 700; margin-bottom: .3rem;}
-.overview .sum {color: #374151; line-height: 1.55; margin-bottom: .8rem;}
-.pill {display: inline-block; border-radius: 999px; padding: .2rem .7rem; font-size: .82rem;
-  font-weight: 600; margin-right: .4rem;}
+/* header */
+.hero {margin: 0 0 2rem; animation: rise .4s ease-out;}
+.hero .brand {display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; font-size: .9rem;
+  letter-spacing: .02em; color: var(--text); margin-bottom: .9rem;}
+.hero .logo {width: 1.6rem; height: 1.6rem; border-radius: 6px; background: var(--text); color: var(--yellow);
+  display: inline-flex; align-items: center; justify-content: center; font-size: .9rem;}
+.hero h1 {font-size: 2.6rem; line-height: 1.1; font-weight: 800; letter-spacing: -.035em; color: var(--text);
+  margin: 0 0 .6rem; padding: 0;}
+.hero h1 mark {background: linear-gradient(transparent 58%, var(--yellow) 58%, var(--yellow) 92%, transparent 92%);
+  color: inherit; padding: 0 .1em;}
+.hero p {font-size: 1.08rem; color: var(--body); margin: 0 0 1rem; max-width: 640px;}
+.meta {display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; font-size: .84rem; color: var(--muted);}
+.meta span::before {content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--yellow); margin-right: .45rem; vertical-align: middle; box-shadow: 0 0 0 1px #e6c200;}
 
-.flag {border: 1px solid #e5e7eb; border-left: 6px solid; border-radius: 14px; padding: 1rem 1.2rem;
-  margin-bottom: .8rem; background: white;}
-.flag .top {display: flex; align-items: center; gap: .55rem; margin-bottom: .45rem;}
-.flag .num {width: 1.6rem; height: 1.6rem; border-radius: 50%; color: white; font-weight: 700;
-  font-size: .8rem; display: inline-flex; align-items: center; justify-content: center;}
-.flag .sev {font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-  border-radius: 6px; padding: .1rem .45rem;}
-.flag .cat {font-size: .8rem; color: #6b7280; text-transform: capitalize;}
-.flag .quote {font-family: Georgia, serif; font-style: italic; color: #111827; background: #f9fafb;
-  border-radius: 8px; padding: .55rem .75rem; margin: .4rem 0 .6rem;}
-.flag .why {color: #374151; margin-bottom: .55rem; line-height: 1.5;}
-.flag .ask {color: #064e3b; background: #ecfdf5; border-radius: 8px; padding: .5rem .75rem; font-size: .94rem;}
+/* input panel */
+[data-testid="stVerticalBlockBorderWrapper"]:has(.input-anchor) {border: 1px solid var(--border) !important;
+  border-radius: 14px !important; background: var(--card); box-shadow: var(--shadow);}
+.stTabs [role="tablist"] {gap: .2rem; background: var(--soft); padding: .25rem; border-radius: 10px;
+  border: 1px solid var(--border) !important; width: fit-content;}
+.stTabs [role="tablist"]::after, .stTabs [role="tablist"]::before, .stTabs .react-aria-SelectionIndicator {display: none;}
+.stTabs [data-testid="stTab"] {border-radius: 7px; padding: .35rem .9rem; height: auto; border: 0 !important;}
+.stTabs [data-testid="stTab"] p {color: var(--muted) !important; font-weight: 500;}
+.stTabs [data-testid="stTab"][aria-selected="true"] {background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08);}
+.stTabs [data-testid="stTab"][aria-selected="true"] p {color: var(--text) !important; font-weight: 600;}
+[data-testid="stFileUploaderDropzone"] {border: 1.5px dashed #d4d4d8 !important; border-radius: 12px !important;
+  background: var(--soft) !important; padding: 1.4rem 1.1rem !important;}
+[data-testid="stFileUploaderDropzone"]:hover {border-color: var(--text) !important;}
+[data-testid="stBaseButton-primary"] {background: var(--yellow) !important; color: var(--text) !important;
+  border: 1px solid #e6c200 !important; border-radius: 10px !important; padding: .7rem 1rem !important;
+  box-shadow: none !important; transition: background .12s, transform .12s;}
+[data-testid="stBaseButton-primary"] p {color: var(--text) !important; font-weight: 700 !important;}
+[data-testid="stBaseButton-primary"]:hover:not(:disabled) {background: #ffcc00 !important; transform: translateY(-1px);}
+[data-testid="stBaseButton-primary"]:disabled {background: var(--track) !important; border-color: var(--border) !important;}
+[data-testid="stBaseButton-primary"]:disabled p {color: var(--faint) !important;}
+[data-testid="stBaseButton-tertiary"] p {color: var(--text) !important; text-decoration: underline;
+  text-decoration-color: var(--yellow); text-decoration-thickness: 3px; text-underline-offset: 3px;}
 
-.paper {font-family: Georgia, serif; font-size: 1rem; line-height: 1.8; color: #1f2937; background: #fffdf8;
-  border: 1px solid #ece7da; border-radius: 14px; padding: 1.6rem 1.8rem; max-height: 560px;
-  overflow-y: auto;}
-.paper mark {border-radius: 4px; padding: .05rem .15rem; color: inherit;}
-.paper sup {font-family: sans-serif; font-size: .7rem; font-weight: 700; color: white; border-radius: 999px;
-  padding: 0 .35rem; margin-left: .15rem;}
+/* score */
+.card {background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.3rem 1.4rem;
+  box-shadow: var(--shadow); margin-bottom: 1rem; animation: rise .35s ease-out;}
+.overview {display: flex; gap: 1.4rem; align-items: center; flex-wrap: wrap;}
+.overview .txt {flex: 1; min-width: 220px;}
+.overview .lbl {font-size: 1.15rem; font-weight: 700; margin-bottom: .3rem; letter-spacing: -.01em;}
+.overview .sum {color: var(--body); line-height: 1.55; margin-bottom: .8rem; font-size: .93rem;}
+.overview.compact {flex-direction: column; text-align: center; gap: .3rem;}
+.overview.compact .txt {min-width: 0;}
+.pill {display: inline-block; border-radius: 999px; padding: .15rem .65rem; font-size: .8rem; font-weight: 600;
+  margin: 0 .25rem .25rem 0;}
 
-.empty {text-align: center; color: #6b7280; padding: 1.5rem 0 .5rem;}
-.steps {display: flex; gap: .8rem; flex-wrap: wrap; margin-top: .4rem;}
-.step {flex: 1; min-width: 180px; background: #f0fdf4; border-radius: 14px; padding: .9rem 1rem; font-size: .92rem; color: #374151;}
-.step b {display: block; color: #111827; margin-bottom: .2rem;}
+/* section headings */
+.panel-h {display: flex; justify-content: space-between; align-items: baseline; margin: .1rem 0 .7rem;}
+.panel-h b {font-size: 1rem; font-weight: 700; color: var(--text);}
+.panel-h span {font-size: .8rem; color: var(--muted);}
+h4.sec {margin: 2rem 0 .7rem; font-size: 1.05rem; font-weight: 700; color: var(--text);}
+
+/* flag cards */
+.fgrid {display: grid; grid-template-columns: 1fr 1fr; gap: .8rem;}
+.flag {background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.1rem;
+  position: relative; animation: rise .35s ease-out both; transition: border-color .15s, box-shadow .15s;}
+.flag::before {content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px;
+  background: var(--sevc, var(--border));}
+.flag:hover {border-color: #d4d4d8; box-shadow: var(--shadow);}
+.flag .top {display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; flex-wrap: wrap;}
+.flag .num {width: 1.45rem; height: 1.45rem; border-radius: 50%; color: #fff; font-weight: 700; font-size: .74rem;
+  display: inline-flex; align-items: center; justify-content: center;}
+.flag .sev {font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  border-radius: 5px; padding: .1rem .4rem;}
+.flag .cat {font-size: .8rem; color: var(--muted); text-transform: capitalize;}
+.flag .quote {font-family: Georgia, 'Times New Roman', serif; color: var(--text); font-size: .98rem;
+  border-left: 2px solid var(--border); padding: .1rem 0 .1rem .75rem; margin: .3rem 0 .6rem;}
+.flag .why {color: var(--body); font-size: .92rem; line-height: 1.5; margin-bottom: .6rem;}
+.flag .ask {color: var(--ask); background: var(--ask-bg); border-radius: 8px; padding: .5rem .7rem; font-size: .9rem;}
+.flag .law {margin-top: .6rem; font-size: .8rem; color: var(--muted);}
+.flag .law a, .tip .law a, .help a b {color: var(--text); font-weight: 600; text-decoration: underline;
+  text-decoration-color: var(--yellow); text-decoration-thickness: 2px; text-underline-offset: 2px;}
+
+/* lease view */
+.pg {position: relative; border: 1px solid var(--paper-border); border-radius: 12px; background: #fff;
+  margin-bottom: 1rem; box-shadow: var(--shadow);}
+.pg img {width: 100%; display: block; border-radius: 12px;}
+.pg .pgno {position: absolute; bottom: .5rem; right: .8rem; font-size: .72rem; color: var(--faint);}
+.paper {font-family: Georgia, 'Times New Roman', serif; font-size: 1rem; line-height: 1.85; color: var(--text);
+  background: var(--paper); border: 1px solid var(--paper-border); border-radius: 12px; padding: 1.8rem 2rem;
+  box-shadow: var(--shadow);}
+.paper sup {font-family: Inter, sans-serif; font-size: .66rem; font-weight: 700; color: #fff; border-radius: 999px;
+  padding: 0 .32rem; margin-left: .15rem;}
+.spot {position: absolute; cursor: help; border-radius: 3px;}
+.spot:hover {outline: 2px solid currentColor; outline-offset: 1px;}
+.hl {position: relative; cursor: help; border-radius: 3px; padding: .05rem .1rem;}
+.hl:hover {outline: 2px solid var(--hlc); outline-offset: 1px;}
+
+/* hover card */
+.tip {visibility: hidden; opacity: 0; position: absolute; z-index: 50; top: 100%; left: 0; width: 310px;
+  padding-top: 8px; transition: opacity .12s; font-style: normal; line-height: 1.45; text-align: left; white-space: normal;}
+.tip.r {left: auto; right: 0;}
+.tip.up {top: auto; bottom: 100%; padding-top: 0; padding-bottom: 8px;}
+.spot:hover .tip, .hl:hover .tip {visibility: visible; opacity: 1;}
+.tip .in {background: #fff; color: var(--text); border: 1px solid var(--border); border-top: 3px solid;
+  border-radius: 10px; padding: .75rem .85rem; font-size: .85rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,.04), 0 18px 40px -12px rgba(0,0,0,.25);}
+.tip .row {display: flex; gap: .45rem; align-items: center; margin-bottom: .35rem;}
+.tip .why {color: var(--body); margin-bottom: .45rem;}
+.tip .ask {color: var(--ask); background: var(--ask-bg); border-radius: 7px; padding: .4rem .55rem; margin-bottom: .35rem;}
+.tip .law {font-size: .76rem; color: var(--muted);}
+.tip .pill-s {font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  border-radius: 5px; padding: .05rem .38rem;}
+.tip .num-s {width: 1.25rem; height: 1.25rem; border-radius: 50%; color: #fff; font-size: .7rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;}
+
+/* empty state */
+.placeholder {border: 1.5px dashed #d4d4d8; border-radius: 14px; padding: 3.4rem 2rem; text-align: center;
+  color: var(--muted); background: var(--soft);}
+.placeholder .big {font-size: 2.2rem; filter: grayscale(1);}
+.placeholder b {display: block; color: var(--text); font-size: 1.1rem; margin: .4rem 0 .3rem;}
+.steps {display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; margin-top: .8rem;}
+.step {background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1rem;
+  font-size: .88rem; color: var(--body);}
+.step b {display: block; color: var(--text); margin-bottom: .2rem;}
+.step i {font-style: normal; display: inline-flex; width: 1.4rem; height: 1.4rem; border-radius: 50%;
+  background: var(--yellow); color: var(--text); font-weight: 700; font-size: .75rem; align-items: center;
+  justify-content: center; margin-bottom: .45rem;}
+.empty {text-align: center; color: var(--muted); padding: 1.5rem 0 .5rem;}
+
+/* help links */
+.help {display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem;}
+.help a.item {display: block; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: .9rem 1rem; color: var(--text); text-decoration: none; transition: border-color .15s, transform .15s;}
+.help a.item:hover {border-color: var(--text); transform: translateY(-1px);}
+.help .ic {font-size: 1.1rem; filter: grayscale(1);}
+.help b {display: block; margin: .3rem 0 .15rem; font-size: .95rem;}
+.help span {font-size: .84rem; color: var(--muted);}
+
+/* misc widgets */
+[data-testid="stSegmentedControl"] button {border-color: var(--border) !important;}
+[data-testid="stSegmentedControl"] button[aria-checked="true"], [data-testid="stSegmentedControl"] button[kind*="Active"] {
+  background: var(--text) !important; border-color: var(--text) !important;}
+[data-testid="stSegmentedControl"] button[aria-checked="true"] p, [data-testid="stSegmentedControl"] button[kind*="Active"] p {color: #fff !important;}
+[data-testid="stColumn"]:has(.side-anchor) {position: sticky; top: 1rem;}
+[data-testid="stHorizontalBlock"]:has(.side-anchor) {align-items: flex-start;}
+code, pre {background: var(--soft) !important;}
+
+@keyframes rise {from {opacity: 0; transform: translateY(4px);} to {opacity: 1; transform: none;}}
+
+@media (max-width: 640px) {
+  .block-container {padding-left: 1rem !important; padding-right: 1rem !important; padding-top: 1.2rem !important;}
+  .hero h1 {font-size: 1.9rem;}
+  .fgrid, .help, .steps {grid-template-columns: 1fr;}
+  [data-testid="stHorizontalBlock"]:has(.side-anchor) {flex-direction: column-reverse;}
+  [data-testid="stColumn"]:has(.side-anchor) {position: static;}
+  .paper {padding: 1.1rem 1.2rem; font-size: .95rem;}
+  .tip {width: 250px;}
+}
 </style>
 """
 
@@ -216,16 +223,16 @@ def esc(text):
 def score_ring(score, color):
     r, c = 52, 2 * 3.14159 * 52
     dash = c * score / 100
-    return f"""<svg width="132" height="132" viewBox="0 0 132 132">
-  <circle cx="66" cy="66" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="12"/>
+    return f"""<svg width="132" height="132" viewBox="0 0 132 132" style="flex-shrink:0">
+  <circle cx="66" cy="66" r="{r}" fill="none" style="stroke:var(--track)" stroke-width="12"/>
   <circle cx="66" cy="66" r="{r}" fill="none" stroke="{color}" stroke-width="12" stroke-linecap="round"
     stroke-dasharray="{dash:.1f} {c:.1f}" transform="rotate(-90 66 66)"/>
-  <text x="66" y="66" text-anchor="middle" font-size="32" font-weight="800" fill="#111827" font-family="sans-serif">{score}</text>
-  <text x="66" y="88" text-anchor="middle" font-size="12" fill="#6b7280" font-family="sans-serif">fairness score</text>
+  <text x="66" y="66" text-anchor="middle" font-size="32" font-weight="800" style="fill:var(--text)" font-family="sans-serif">{score}</text>
+  <text x="66" y="88" text-anchor="middle" font-size="12" style="fill:var(--muted)" font-family="sans-serif">fairness score</text>
 </svg>"""
 
 
-def overview_card(flags, summary):
+def overview_card(flags, summary, compact=False):
     score = safety_score(flags)
     label, color = score_label(score)
     pills = ""
@@ -233,7 +240,8 @@ def overview_card(flags, summary):
         n = sum(1 for f in flags if f.get("severity") == k)
         name, fg, bg, _ = SEV[k]
         pills += f'<span class="pill" style="color:{fg};background:{bg};">{n} {name}</span>'
-    return f"""<div class="card overview">
+    cls = "card overview compact" if compact else "card overview"
+    return f"""<div class="{cls}">
   {score_ring(score, color)}
   <div class="txt">
     <div class="lbl" style="color:{color};">{label}</div>
@@ -243,32 +251,48 @@ def overview_card(flags, summary):
 </div>"""
 
 
+def law_line(cat):
+    if cat in LAWS:
+        sec, blurb = LAWS[cat]
+        return (f'<div class="law">Know your rights: <a href="{VA_CODE.format(sec)}" target="_blank">'
+                f'Va. Code § {sec}</a> · {esc(blurb)}</div>')
+    return (f'<div class="law">Know your rights: <a href="{HANDBOOK}" target="_blank">'
+            f'Virginia Landlord-Tenant Handbook</a></div>')
+
+
 def flag_card(n, f):
     name, fg, bg, _ = SEV.get(f.get("severity", "low"), SEV["low"])
-    cat = f.get("category", "other")
-    return f"""<div class="flag" style="border-left-color:{fg};">
+    cat = str(f.get("category", "other")).lower()
+    return f"""<div class="flag" style="--sevc:{fg};">
   <div class="top">
     <span class="num" style="background:{fg};">{n}</span>
     <span class="sev" style="color:{fg};background:{bg};">{name}</span>
-    <span class="cat">{CAT_ICON.get(cat, "📌")} {esc(cat)}</span>
+    <span class="cat">{esc(cat)}</span>
   </div>
   <div class="quote">"{esc(f.get("clause_quote", ""))}"</div>
   <div class="why">{esc(f.get("why", ""))}</div>
   <div class="ask"><b>Ask your landlord:</b> {esc(f.get("question_for_landlord", ""))}</div>
+  {law_line(cat)}
 </div>"""
 
 
-# find a quote in the lease even if spacing or punctuation differs
-def find_span(text, quote):
-    words = re.findall(r"\w+", quote)
-    for take in (len(words), 8, 5):
-        if len(words) < 3 or take > len(words):
-            continue
-        pat = r"\W+".join(re.escape(w) for w in words[:take])
-        m = re.search(pat, text, re.IGNORECASE)
-        if m:
-            return m.start(), m.end()
-    return None
+def help_cards():
+    items = "".join(f'<a class="item" href="{url}" target="_blank">'
+                    f'<b>{esc(t)}</b><span>{esc(d)}</span></a>' for ic, t, d, url in HELP)
+    return f'<h4 class="sec">Need a second opinion?</h4><div class="help">{items}</div>'
+
+
+def tip_html(n, f, cls=""):
+    name, fg, bg, _ = SEV.get(f.get("severity", "low"), SEV["low"])
+    cat = str(f.get("category", "other")).lower()
+    return f"""<span class="tip {cls}"><span class="in" style="border-top-color:{fg};display:block;">
+<span class="row"><span class="num-s" style="background:{fg};">{n}</span>
+<span class="pill-s" style="color:{fg};background:{bg};">{name}</span>
+<span style="color:var(--muted);font-size:.8rem;">{esc(cat)}</span></span>
+<span class="why" style="display:block;">{esc(f.get("why", ""))}</span>
+<span class="ask" style="display:block;"><b>Ask:</b> {esc(f.get("question_for_landlord", ""))}</span>
+{law_line(cat).replace("<div", "<span style='display:block'").replace("</div>", "</span>")}
+</span></span>""".replace("\n", "")
 
 
 def highlighted_lease(text, flags):
@@ -276,14 +300,14 @@ def highlighted_lease(text, flags):
     for n, f in enumerate(flags, 1):
         hit = find_span(text, f.get("clause_quote", ""))
         if hit and all(hit[1] <= s or hit[0] >= e for s, e, _, _ in spans):
-            spans.append((hit[0], hit[1], n, f.get("severity", "low")))
-    spans.sort()
+            spans.append((hit[0], hit[1], n, f))
+    spans.sort(key=lambda x: x[0])
     out, pos = [], 0
-    for s, e, n, sev in spans:
-        _, fg, _, hl = SEV.get(sev, SEV["low"])
+    for s, e, n, f in spans:
+        _, fg, _, hl = SEV.get(f.get("severity", "low"), SEV["low"])
         out.append(esc(text[pos:s]))
-        out.append(f'<mark style="background:{hl};">{esc(text[s:e])}</mark>'
-                   f'<sup style="background:{fg};">{n}</sup>')
+        out.append(f'<span class="hl" style="background:{hl};--hlc:{fg};">{esc(text[s:e])}'
+                   f'<sup style="background:{fg};">{n}</sup>{tip_html(n, f)}</span>')
         pos = e
     out.append(esc(text[pos:]))
     # br instead of newlines so markdown leaves it alone
@@ -291,42 +315,66 @@ def highlighted_lease(text, flags):
     return f'<div class="paper">{body}</div>', len(spans)
 
 
+def page_html(png, spots, label):
+    img = base64.b64encode(png).decode()
+    marks = []
+    for n, f, (x, y, w, h) in spots:
+        fg = SEV.get(f.get("severity", "low"), SEV["low"])[1]
+        side = "r" if x + w / 2 > 55 else ""
+        side += " up" if y > 70 else ""
+        marks.append(f'<span class="spot" style="left:{x:.2f}%;top:{y:.2f}%;width:{w:.2f}%;height:{h:.2f}%;'
+                     f'color:{fg};">{tip_html(n, f, side)}</span>')
+    return (f'<div class="pg"><img src="data:image/png;base64,{img}" alt="{esc(label)}">'
+            f'{"".join(marks)}<span class="pgno">{esc(label)}</span></div>')
+
+
 # ui
-st.set_page_config(page_title="Lease Red-Flag Checker", page_icon="🏠", layout="centered")
+st.set_page_config(page_title="Lease Red-Flag Checker", page_icon="🏠", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 st.markdown("""<div class="hero">
-  <h1>🏠 Lease Red-Flag Checker</h1>
-  <p>Drop in your lease. See the clauses worth a second look, explained in plain English.</p>
-  <span class="chip">✨ Powered by Gemma 4</span>
-  <span class="chip">📄 PDF · photos · text</span>
-  <span class="chip">⚖️ Virginia tenant law</span>
-  <span class="chip">🔒 Nothing is stored</span>
+  <div class="brand"><span class="logo">⚑</span>Lease Red-Flag Checker</div>
+  <h1>Know what you're <mark>signing</mark>.</h1>
+  <p>Drop in your lease. We highlight the clauses worth a second look and explain them in plain English.</p>
+  <div class="meta"><span>Powered by Gemma 4</span><span>PDF, photos or text</span><span>Virginia tenant law</span><span>Nothing is stored</span></div>
 </div>""", unsafe_allow_html=True)
 
-with st.container(border=True):
-    tab_up, tab_paste = st.tabs(["📄 Upload lease", "✍️ Paste text"])
-    with tab_up:
-        uploads = st.file_uploader("PDF or photos of your lease", type=["pdf", "png", "jpg", "jpeg"],
-                                   accept_multiple_files=True, label_visibility="collapsed")
-    with tab_paste:
-        if st.button("✨ Try a sample lease", type="tertiary"):
-            st.session_state.pasted = SAMPLE_LEASE
-        pasted = st.text_area("Lease text", height=200, key="pasted", label_visibility="collapsed",
-                              placeholder="Paste your lease text here...")
+main, side = st.columns([7, 4], gap="large")
 
-    ready = bool(uploads or pasted.strip())
-    go = st.button("Check my lease →", type="primary", disabled=not ready, use_container_width=True)
+# right side: upload + score
+with side:
+    st.markdown('<span class="side-anchor"></span>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown('<span class="input-anchor"></span>', unsafe_allow_html=True)
+        tab_up, tab_paste = st.tabs(["Upload", "Paste text"])
+        with tab_up:
+            uploads = st.file_uploader("PDF or photos of your lease", type=["pdf", "png", "jpg", "jpeg"],
+                                       accept_multiple_files=True, label_visibility="collapsed")
+        with tab_paste:
+            if st.button("Try a sample lease", type="tertiary"):
+                st.session_state.pasted = SAMPLE_LEASE
+            pasted = st.text_area("Lease text", height=180, key="pasted", label_visibility="collapsed",
+                                  placeholder="Paste your lease text here...")
+        ready = bool(uploads or pasted.strip())
+        go = st.button("Check my lease →", type="primary", disabled=not ready, use_container_width=True)
+    score_slot = st.container()
 
 if go:
-    parts, text = [], []
-    with st.status("Checking your lease...", expanded=True) as status:
+    parts, text, pdfs = [], [], []
+    with side:
+        box = st.empty()
+    with box.status("Checking your lease...", expanded=True) as status:
         st.write("📄 Reading pages")
         for f in uploads or []:
             data = f.read()
             if f.type == "application/pdf":
-                text.append(pdf_to_text(data))
+                pdfs.append((f.name, data))
+                page_text = pdf_to_text(data)
+                text.append(page_text)
                 for img in pdf_to_images(data):
                     parts.append(types.Part.from_bytes(data=img, mime_type="image/png"))
+                # text alongside images so quotes match exactly
+                if page_text.strip():
+                    parts.append(f"Extracted text of {f.name}:\n{page_text}")
             else:
                 parts.append(types.Part.from_bytes(data=data, mime_type=f.type))
         if pasted.strip():
@@ -334,30 +382,75 @@ if go:
             text.append(pasted)
         st.write("🧠 Gemma 4 is reviewing each clause")
         try:
-            st.session_state.result = analyze(parts)
-            st.session_state.lease_text = "\n\n".join(t for t in text if t.strip())
-            status.update(label="Done!", state="complete", expanded=False)
+            lease_text = "\n\n".join(t for t in text if t.strip())
+            st.session_state.result = analyze(parts, lease_text)
+            st.session_state.lease_text = lease_text
+            st.session_state.pdfs = pdfs
+            st.session_state.pop("error", None)
+            ok = True
         except Exception as e:
-            status.update(label="Something went wrong", state="error")
-            st.error(f"{e}")
+            ok = False
+            # drop old results so they don't look like this run
+            st.session_state.pop("result", None)
+            st.session_state.error = str(e)
+    box.empty()
+    if ok:
+        st.toast("Lease checked", icon="✅")
+    st.rerun()
 
 result = st.session_state.get("result")
-if not result:
-    st.markdown("""<div class="steps">
-  <div class="step"><b>1. Add your lease</b>Upload a PDF, snap photos, or paste the text.</div>
-  <div class="step"><b>2. Gemma 4 reviews it</b>Each clause is checked against common tenant red flags.</div>
-  <div class="step"><b>3. Know what to ask</b>Get plain-English flags and a ready-to-send email.</div>
-</div>""", unsafe_allow_html=True)
-else:
+flags = []
+if result:
     flags = result.get("flags", [])
     order = {"high": 0, "medium": 1, "low": 2}
     flags.sort(key=lambda f: order.get(f.get("severity", "low"), 3))
+    with score_slot:
+        st.markdown(overview_card(flags, result.get("summary", ""), compact=True), unsafe_allow_html=True)
 
-    st.markdown(overview_card(flags, result.get("summary", "")), unsafe_allow_html=True)
+with side:
+    if st.session_state.get("error") and not result:
+        err = st.session_state.error
+        if "API key" in err or "API_KEY" in err or "PERMISSION_DENIED" in err:
+            st.error("The API key isn't working. Check GEMINI_API_KEY on the server.")
+        elif "429" in err or "RESOURCE_EXHAUSTED" in err:
+            st.error("Gemma is getting a lot of requests right now. Wait a few seconds and try again.")
+        else:
+            st.error("Something went wrong while reading the lease. Try again in a moment.")
+        with st.expander("Error details"):
+            st.code(err, language=None, wrap_lines=True)
 
-    t_flags, t_lease, t_email = st.tabs([f"🚩 Flags ({len(flags)})", "📄 Highlighted lease", "✉️ Landlord email"])
+# left side: highlighted lease, then the flags under it
+with main:
+    if not result:
+        st.markdown("""<div class="placeholder"><div class="big">📄</div>
+<b>Your lease will show up here</b>
+Upload a PDF or paste the text on the right. Flagged clauses get highlighted,<br>and you can hover any highlight to see why it matters.</div>""",
+                    unsafe_allow_html=True)
+        st.markdown("""<div class="steps">
+  <div class="step"><i>1</i><b>Add your lease</b>Upload a PDF, snap photos, or paste the text.</div>
+  <div class="step"><i>2</i><b>Gemma 4 reviews it</b>Each clause is checked against Virginia tenant law.</div>
+  <div class="step"><i>3</i><b>Know what to ask</b>Get plain-English flags and a ready-to-send email.</div>
+</div>""", unsafe_allow_html=True)
+    else:
+        pdfs = st.session_state.get("pdfs", [])
+        lease_text = st.session_state.get("lease_text", "")
+        if pdfs:
+            name, data = pdfs[0]
+            pages, found = highlight_pdf(data, flags)
+            st.markdown(f'<div class="panel-h"><b>{esc(name)}</b><span>{found} of {len(flags)} marked · '
+                        f'hover a highlight for details</span></div>', unsafe_allow_html=True)
+            for i, (png, spots) in enumerate(pages, 1):
+                st.markdown(page_html(png, spots, f"page {i}"), unsafe_allow_html=True)
+        elif lease_text:
+            page, found = highlighted_lease(lease_text, flags)
+            st.markdown(f'<div class="panel-h"><b>Your lease</b><span>{found} of {len(flags)} highlighted · '
+                        f'hover a highlight for details</span></div>', unsafe_allow_html=True)
+            st.markdown(page, unsafe_allow_html=True)
+        else:
+            st.info("The highlighted view works with PDFs and pasted text. Photos are still checked; see the flags below.")
 
-    with t_flags:
+        st.markdown(f'<div class="panel-h" style="margin-top:1.4rem;"><b>All flags</b><span>{len(flags)} found</span></div>',
+                    unsafe_allow_html=True)
         if not flags:
             st.markdown('<div class="empty">🎉 Nothing stood out. Still read it carefully before signing!</div>',
                         unsafe_allow_html=True)
@@ -368,26 +461,19 @@ else:
                      if pick in (None, "All") or f.get("severity", "").lower() == pick.lower()]
             if not shown:
                 st.caption(f"No {pick.lower()} flags.")
-            for n, f in shown:
-                st.markdown(flag_card(n, f), unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="fgrid">' + "".join(flag_card(n, f) for n, f in shown) + "</div>",
+                            unsafe_allow_html=True)
 
-    with t_lease:
-        lease_text = st.session_state.get("lease_text", "")
-        if not lease_text:
-            st.info("The highlighted view works with PDFs and pasted text. For photos, see the Flags tab.")
-        else:
-            page, found = highlighted_lease(lease_text, flags)
-            st.caption(f"{found} of {len(flags)} flagged clauses highlighted. Numbers match the Flags tab.")
-            st.markdown(page, unsafe_allow_html=True)
+# bottom: email + links
+if result and flags:
+    st.markdown('<h4 class="sec">Email your landlord</h4>', unsafe_allow_html=True)
+    email = build_email(flags)
+    with st.container(border=True):
+        st.caption("Hover the box and click the copy icon, or download it.")
+        st.code(email, language=None, wrap_lines=True)
+        st.download_button("⬇️ Download as .txt", email, file_name="questions-for-landlord.txt")
 
-    with t_email:
-        if not flags:
-            st.caption("No questions needed.")
-        else:
-            email = build_email(flags)
-            st.caption("Hover the box and click the copy icon, or download it.")
-            st.code(email, language=None, wrap_lines=True)
-            st.download_button("⬇️ Download as .txt", email, file_name="questions-for-landlord.txt")
-
+st.markdown(help_cards(), unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 st.caption("Not legal advice. Built with Gemma 4 at GDG Build with AI × Hacktoberfest 2026 · Virginia Tech")
