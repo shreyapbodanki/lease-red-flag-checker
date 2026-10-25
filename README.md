@@ -1,33 +1,63 @@
-# 🏠 Lease Red-Flag Checker
+<div align="center">
+
+# Lease Red-Flag Checker
+
+**AI lease review for renters. Upload a lease, see which clauses conflict with Virginia law, and know what to ask before you sign.**
 
 [![tests](https://github.com/shreyapbodanki/lease-red-flag-checker/actions/workflows/tests.yml/badge.svg)](https://github.com/shreyapbodanki/lease-red-flag-checker/actions/workflows/tests.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-a78bfa.svg)](LICENSE)
-[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-friendly-4ade80.svg)](CONTRIBUTING.md)
-[![Gemma 4](https://img.shields.io/badge/model-Gemma%204-c4b5fd.svg)](https://ai.google.dev/gemma)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0a0a0a.svg)](LICENSE)
+[![Model: Gemma 4](https://img.shields.io/badge/model-Gemma%204-ffd60a.svg)](https://ai.google.dev/gemma)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-friendly-ffd60a.svg)](CONTRIBUTING.md)
 
-Upload a lease (PDF, photos, or pasted text) and get plain-English flags on clauses that may be unfair to tenants or may conflict with Virginia renter law. Hover any highlight to see why it matters and what to ask your landlord.
+[**Live demo**](https://lease-checker-827970078270.us-east1.run.app) · [Accuracy](#accuracy) · [Getting started](#getting-started) · [Contributing](CONTRIBUTING.md)
 
-Built at **GDG Build with AI × Hacktoberfest 2026** at Virginia Tech (AI for Good: Housing).
+<img src="docs/Lease_UI.png" alt="Lease Red-Flag Checker: a lease with six flagged clauses highlighted on the page, an upload panel, and a fairness score of 17" width="900">
 
-**🔗 Live demo:** https://lease-checker-827970078270.us-east1.run.app
+</div>
 
-![Lease Red-Flag Checker showing a lease with six highlighted clauses and a fairness score of 17](docs/screenshot.png)
+---
 
-> Not legal advice. This tool points out clauses worth a second look; it doesn't replace a lawyer or your local tenant resources.
+## Overview
 
-## Why
+Most renters, especially students signing their first lease, don't read every clause, and the ones that matter are easy to miss: oversized deposits, entry without notice, waived repairs, one-sided legal fees. Lease Red-Flag Checker reads a lease the way a careful friend with a copy of the Virginia Code would, then points to the exact lines worth questioning.
 
-Most student renters sign leases without reading every clause, and the ones that matter (huge deposits, entry without notice, waived repairs, one-sided fees) are easy to miss. This tool makes a lease readable in under a minute.
+Built at **GDG Build with AI × Hacktoberfest 2026** at Virginia Tech for the **AI for Good: Housing** track.
 
-## What it does
+> **Not legal advice.** This tool highlights clauses worth a second look. It does not replace a lawyer or local tenant resources.
 
-- Reads leases as **PDFs, phone photos, or pasted text** (multimodal: PDF pages are sent to Gemma as images)
-- Gives the lease a **fairness score** and highlights flagged clauses **directly on the PDF pages** (or in pasted text)
-- **Hover any highlight** to see why it matters, what to ask, and the relevant Virginia law
-- Flags risky clauses with the **exact quote**, a **severity** (high / medium / low), and a **plain-English explanation**
-- Links each flag to the **Virginia Code section** it relates to, plus free legal help (VT Student Legal Services, Virginia Legal Aid, DHCD handbook)
-- Drafts a **landlord email** you can copy and edit
-- Retries automatically if the API is busy, and falls back to the PDF's text if image analysis fails
+## Features
+
+| | |
+|---|---|
+| **Multimodal input** | Upload a PDF or phone photos, or paste text. PDF pages are sent to Gemma 4 as images, with extracted text alongside. |
+| **Highlights on the real document** | Flagged clauses are boxed directly on the PDF page, color-coded by severity and numbered. |
+| **Hover for details** | Hover any highlight to see why it matters, a question to ask the landlord, and the relevant Virginia Code section. |
+| **Grounded in law** | The prompt includes verified facts from the Virginia Residential Landlord and Tenant Act, and every flag links to the statute. |
+| **Fairness score** | A 0–100 score gives a one-glance verdict before the details. |
+| **Next steps** | Generates a ready-to-send email to the landlord and links to free legal help. |
+| **Resilient** | Retries when the API is busy and falls back to extracted text if image analysis fails. |
+| **Private** | Leases are sent to the model for analysis only. Nothing is stored. |
+
+## Accuracy
+
+The checker is evaluated against a labeled test set of **15 Virginia leases and 87 clauses** ([`eval/leases.json`](eval/leases.json)). Each clause is labeled `flag` (conflicts with Virginia law, with a cited code section), `ok` (should not be flagged), or `either` (legal but unfavorable, reported but not scored).
+
+**Results:** Gemma 4 (`gemma-4-26b-a4b-it`), 3 runs per input type.
+
+| Metric | Pasted text | PDF |
+|---|:---:|:---:|
+| **Recall** on clauses that conflict with Virginia law | **97%** | **97%** |
+| **False-alarm rate** on fair clauses | **7%** | **4%** |
+| Precision | 86% | 92% |
+| Correct category | 81% | 85% |
+| Quotes located for highlighting | 97% | 98% |
+
+**Findings**
+- A fully compliant lease written in dense legal language received **zero flags across all six runs**.
+- The one recurring miss is a **pet deposit stacked on a maximum security deposit**. Pet deposits count toward Virginia's two-month cap ([§ 55.1-1200](https://law.lis.virginia.gov/vacode/title55.1/chapter12/section55.1-1200/)), but the model tended to attribute the problem to the base deposit clause instead.
+- The test set was written by the author, so these results are a sanity check rather than a guarantee. Additional test leases are welcome.
+
+Full report: [`eval/results.md`](eval/results.md)
 
 ## How it works
 
@@ -35,9 +65,9 @@ Most student renters sign leases without reading every clause, and the ones that
 flowchart LR
     A[Lease<br/>PDF · photo · text] --> B[PyMuPDF<br/>pages → images + text]
     B --> C[Gemma 4<br/>+ Virginia law facts]
-    C --> D[JSON flags<br/>quote · severity · why · question]
+    C --> D[Structured flags<br/>quote · severity · reason]
     D --> E[Locate quotes on the page]
-    E --> F[Highlighted lease<br/>+ hover cards + score + email]
+    E --> F[Highlighted lease<br/>hover cards · score · email]
     subgraph Google Cloud Run
       B
       E
@@ -45,83 +75,35 @@ flowchart LR
     end
 ```
 
-1. Uploaded PDFs are rendered to images (up to 8 pages) and their text is extracted. Photos and pasted text are passed as-is.
-2. Gemma 4 gets the lease plus a prompt with verified facts from the Virginia Residential Landlord and Tenant Act (deposit caps, late fee limits, entry notice, prohibited lease terms).
-3. The model returns structured JSON (summary + flags), which the app sorts by severity.
-4. Each flagged quote is located on the PDF page with PyMuPDF, boxed in its severity color, and overlaid with a hover card.
+1. **Ingest.** PDFs are rendered to page images (up to 8 pages) and their text is extracted. Photos and pasted text are passed through directly.
+2. **Analyze.** Gemma 4 receives the lease along with verified Virginia rules: deposit caps, deposit return deadlines, late fee limits, entry notice, and prohibited lease terms.
+3. **Structure.** The model returns JSON with a summary and flags (exact quote, category, severity, explanation, suggested question).
+4. **Highlight.** Each quote is located on the page with PyMuPDF, using fuzzy matching when the model rewords it, then boxed and overlaid with a hover card.
 
-Leases are only sent to the model for analysis. The app does not store them.
+## Getting started
 
-## Accuracy
-
-The checker is measured against a **labeled test set** of 15 Virginia leases and 87 clauses in [`eval/leases.json`](eval/leases.json). Every clause is labeled:
-
-| Label | Meaning | Count |
-|---|---|---|
-| `flag` | Conflicts with the Virginia Residential Landlord and Tenant Act (each cites a code section) | 23 |
-| `ok` | Ordinary clause that should **not** be flagged | 52 |
-| `either` | Legal but unfavorable, or arguable. Reported but **not scored** | 12 |
-
-The set includes plain-English and dense legalese leases, clauses sitting exactly at the legal limits (a deposit of exactly 2 months, a late fee of exactly 10%), and a fully fair lease written in intimidating legal language to test false alarms. Lease titles are never sent to the model.
-
-**Results** (Gemma 4 `gemma-4-26b-a4b-it`, 3 runs per input type, Oct 24 2026):
-
-| Metric | Pasted text | PDF (page images + text) |
-|---|---|---|
-| **Recall** on clauses that conflict with VA law | **97%** (96–100%) | **97%** (96–100%) |
-| **False alarms** on fair clauses | **7%** (6–8%) | **4%** (4–4%) |
-| Precision (flags that were real problems) | 86% (85–88%) | 92% (92–92%) |
-| Flags with the right category | 81% (77–86%) | 85% (82–87%) |
-| Real problems rated high severity | 85% (82–91%) | 81% (77–83%) |
-| Flag quotes found in the lease (needed for highlighting) | 97% (94–100%) | 98% (97–100%) |
-
-- The fully fair lease written in dense legalese (L13) got **zero flags in all 6 runs**.
-- The one recurring miss is the hardest case: a **$500 pet deposit on top of a $2,000 deposit** (rent $1,000). Pet deposits count toward Virginia's 2-month cap (§ 55.1-1200), so the total is over the limit. The model often noticed the deposit problem but pinned it on the $2,000 clause, which is legal on its own. That's also where one of the false alarms comes from.
-- Caveat: this is a small test set written by the project author, so treat these numbers as a sanity check, not a guarantee. More test leases are very welcome (see [Contributing](#contributing)).
-
-Full report: [`eval/results.md`](eval/results.md).
-
-Run it yourself:
+**Requirements:** Python 3.12+ and a free API key from [Google AI Studio](https://aistudio.google.com).
 
 ```bash
-python eval/run_eval.py --mode both --runs 3   # text and PDF input, 3 runs each (needs GEMINI_API_KEY)
-python eval/run_eval.py --dry-run              # checks the pipeline with a fake model, no key needed
-```
-
-Results are written to [`eval/results.md`](eval/results.md): recall on problem clauses, false alarms on fair clauses, precision, category and severity agreement, how many flag quotes could be located for highlighting, plus a list of every miss and false alarm.
-
-## Built with
-
-- **Gemma 4** (`gemma-4-26b-a4b-it`), an open-weight model, via the Gemini API
-- **Streamlit** for the UI
-- **PyMuPDF** to turn PDF pages into images and locate quotes for highlighting
-- **Docker** + **Google Cloud Run** for hosting (image stored in Artifact Registry)
-- **pytest** + **GitHub Actions** for tests on every push
-
-## Run it locally
-
-```bash
+git clone https://github.com/shreyapbodanki/lease-red-flag-checker.git
+cd lease-red-flag-checker
 pip install -r requirements-dev.txt
-```
 
-Get a free API key from [Google AI Studio](https://aistudio.google.com) and set it:
-
-```bash
-# mac / linux
-export GEMINI_API_KEY="your-key"
-
-# windows powershell
-$env:GEMINI_API_KEY="your-key"
-```
-
-Then:
-
-```bash
+export GEMINI_API_KEY="your-key"        # Windows PowerShell: $env:GEMINI_API_KEY="your-key"
 streamlit run app.py
-pytest -q              # unit tests, no key needed
 ```
 
-## Deploy to Google Cloud Run
+### Tests
+
+```bash
+pytest -q                                      # unit tests, no API key needed
+python eval/run_eval.py --mode both --runs 3   # accuracy eval (requires GEMINI_API_KEY)
+python eval/run_eval.py --dry-run              # eval pipeline check with a mock model
+```
+
+Tests run automatically on every push via GitHub Actions.
+
+### Deploy to Google Cloud Run
 
 ```bash
 docker build -t lease-checker .
@@ -133,35 +115,50 @@ gcloud run deploy lease-checker \
   --set-env-vars GEMINI_API_KEY=your-key
 ```
 
-Cloud Run scales to zero when idle, so the app costs nothing when nobody is using it.
+Cloud Run scales to zero when idle, so there is no cost when the app isn't in use.
 
-## Project layout
+## Project structure
 
-| Path | What it is |
-|---|---|
-| [`lease_core.py`](lease_core.py) | Prompt, Gemma call, retries, JSON cleanup, PDF rendering, quote matching, scoring |
-| [`app.py`](app.py) | Streamlit UI: layout, theme, hover cards |
-| [`eval/`](eval) | Labeled test leases and the accuracy script |
-| [`tests/`](tests) | Unit tests (run in CI on every push) |
+```
+├── app.py               Streamlit UI: layout, styling, hover cards
+├── lease_core.py        Prompt, Gemma 4 calls, retries, PDF rendering, quote matching, scoring
+├── eval/
+│   ├── leases.json      Labeled test leases
+│   ├── run_eval.py      Accuracy evaluation
+│   └── results.md       Latest results
+├── tests/               Unit tests (pytest)
+├── docs/                Screenshots and contributor backlog
+└── Dockerfile           Container for Cloud Run
+```
 
-## Contributing
+## Tech stack
 
-Contributions are welcome, and this repo is Hacktoberfest-friendly. Good places to start:
-
-- **Report a wrong flag:** every missed problem or false alarm can become a new test case
-- **Add test leases** to `eval/leases.json`
-- **Add another state's** landlord-tenant rules
-- Issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines, and please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+**Model:** Gemma 4 (open weights) via the Gemini API · **App:** Python, Streamlit · **Documents:** PyMuPDF · **Infrastructure:** Docker, Google Cloud Run, Artifact Registry · **Quality:** pytest, GitHub Actions
 
 ## Roadmap
 
-- OCR so highlighting also works on scanned leases and phone photos
-- Support for other states' landlord-tenant laws
-- Ask follow-up questions about your lease in a chat
-- Spanish explanations
+- [ ] OCR so highlighting also works on scanned leases and phone photos
+- [ ] Landlord-tenant rules for additional states
+- [ ] Follow-up questions about a lease in a chat
+- [ ] Spanish explanations
+
+## Contributing
+
+Contributions are welcome, and this repository participates in Hacktoberfest. Good starting points:
+
+- **Report a wrong flag.** Every miss or false alarm can become a new test case.
+- **Add test leases** to `eval/leases.json`.
+- **Add another state's** landlord-tenant rules.
+- Browse issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Acknowledgments
+
+- Legal references from the [Code of Virginia, Title 55.1, Chapter 12](https://law.lis.virginia.gov/vacode/title55.1/chapter12/) (Virginia Residential Landlord and Tenant Act)
+- Tenant resources: [VT Student Legal Services](https://legal.uss.vt.edu/), [Virginia Legal Aid](https://www.valegalaid.org/), [DHCD Landlord-Tenant Resources](https://dhcd.virginia.gov/landlord-tenant-resources)
+- Built at GDG on Campus Virginia Tech's Build with AI × Hacktoberfest 2026
 
 ## License
 
-[MIT](LICENSE)
+Released under the [MIT License](LICENSE).
