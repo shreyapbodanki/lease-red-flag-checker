@@ -15,4 +15,4 @@ labels: enhancement
 
 **Can you help add it?** yes / no
 
-See [Adding a state](../../CONTRIBUTING.md#adding-a-state).
+See [Adding a state](https://github.com/shreyapbodanki/lease-red-flag-checker/blob/main/.github/CONTRIBUTING.md#adding-a-state).

@@ -7,9 +7,9 @@
 [![tests](https://github.com/shreyapbodanki/lease-red-flag-checker/actions/workflows/tests.yml/badge.svg)](https://github.com/shreyapbodanki/lease-red-flag-checker/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0a0a0a.svg)](LICENSE)
 [![Model: Gemma 4](https://img.shields.io/badge/model-Gemma%204-ffd60a.svg)](https://ai.google.dev/gemma)
-[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-friendly-ffd60a.svg)](CONTRIBUTING.md)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-friendly-ffd60a.svg)](.github/CONTRIBUTING.md)
 
-[**Live demo**](https://lease-checker-827970078270.us-east1.run.app) · [Accuracy](#accuracy) · [Getting started](#getting-started) · [Contributing](CONTRIBUTING.md)
+[**Live demo**](https://lease-checker-827970078270.us-east1.run.app) · [Accuracy](#accuracy) · [Getting started](#getting-started) · [Contributing](.github/CONTRIBUTING.md)
 
 <img src="docs/Lease_UI.png" alt="Lease Red-Flag Checker: a lease with six flagged clauses highlighted on the page, an upload panel, and a fairness score of 17" width="900">
 
@@ -151,7 +151,7 @@ Contributions are welcome, and this repository participates in Hacktoberfest. Go
 - **Add another state's** landlord-tenant rules.
 - Browse issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for setup and guidelines, and the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 ## Acknowledgments
 

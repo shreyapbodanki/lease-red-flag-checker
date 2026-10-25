@@ -4,11 +4,11 @@ Thanks for helping renters read their leases! Contributions of every size are we
 
 ## Ways to help
 
-- **Report a wrong flag.** Did the checker miss a problem clause, or flag something that's fine? Open a [wrong flag issue](../../issues/new?template=wrong_flag.md). Every report can become a new test case.
-- **Add test leases.** The test set in [`eval/leases.json`](eval/leases.json) is how we measure accuracy. More realistic leases make the numbers more trustworthy.
+- **Report a wrong flag.** Did the checker miss a problem clause, or flag something that's fine? Open a [wrong flag issue](https://github.com/shreyapbodanki/lease-red-flag-checker/issues/new?template=wrong_flag.md). Every report can become a new test case.
+- **Add test leases.** The test set in [`eval/leases.json`](../eval/leases.json) is how we measure accuracy. More realistic leases make the numbers more trustworthy.
 - **Add another state.** The legal facts and code links are Virginia-only right now. See [Adding a state](#adding-a-state).
-- **Improve the UI or accessibility.** The app is a single Streamlit file, [`app.py`](app.py).
-- Look for issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+- **Improve the UI or accessibility.** The app is a single Streamlit file, [`app.py`](../app.py).
+- Look for issues labeled [`good first issue`](https://github.com/shreyapbodanki/lease-red-flag-checker/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 ## Setup
 

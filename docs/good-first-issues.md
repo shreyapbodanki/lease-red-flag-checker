@@ -20,7 +20,7 @@ Add a "Download report" button that saves the score, flags, and landlord email a
 The hover cards on highlights only open on mouse hover. Make them open on keyboard focus too (`tabindex="0"` plus `:focus-within` CSS) so keyboard and screen-reader users can reach them.
 
 ### Add North Carolina landlord-tenant rules
-Follow [Adding a state](../CONTRIBUTING.md#adding-a-state): deposit cap, return deadline, late fee limits, entry notice, and prohibited lease terms, each with a code section and at least three test leases.
+Follow [Adding a state](../.github/CONTRIBUTING.md#adding-a-state): deposit cap, return deadline, late fee limits, entry notice, and prohibited lease terms, each with a code section and at least three test leases.
 
 ### Track eval results over time
 Have `eval/run_eval.py` append a one-line summary (date, model, recall, false alarms) to `eval/history.csv`, so prompt changes can be compared.
