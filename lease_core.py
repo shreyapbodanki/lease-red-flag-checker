@@ -104,6 +104,19 @@ def find_in_pdf(doc, quote):
             hits = page.search_for(t)
             if hits:
                 return i, hits
+    # fuzzy fallback: find the clause in the page text, then box that exact text
+    for i, page in enumerate(doc):
+        if i >= MAX_PAGES:
+            break
+        text = page.get_text()
+        span = find_span(text, quote)
+        if not span:
+            continue
+        snippet = " ".join(text[span[0]:span[1]].split())
+        for t in (snippet, " ".join(snippet.split()[:6])):
+            hits = page.search_for(t) if len(t) >= 10 else []
+            if hits:
+                return i, hits
     return None, []
 
 
@@ -265,10 +278,16 @@ SEV = {
 # find a quote in the lease even if spacing or punctuation differs
 def find_span(text, quote):
     words = re.findall(r"\w+", quote)
-    for take in (len(words), 8, 5):
-        if len(words) < 3 or take > len(words):
+    if len(words) < 3:
+        return None
+    # whole quote, then its start, then any 6 or 4 word run from it
+    tries = [words, words[:8], words[:5]]
+    for size in (6, 4):
+        tries += [words[i:i + size] for i in range(1, max(1, len(words) - size + 1))]
+    for chunk in tries:
+        if len(chunk) < 3 or len(chunk) > len(words):
             continue
-        pat = r"\W+".join(re.escape(w) for w in words[:take])
+        pat = r"\W+".join(re.escape(w) for w in chunk)
         m = re.search(pat, text, re.IGNORECASE)
         if m:
             return m.start(), m.end()

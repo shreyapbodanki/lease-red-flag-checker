@@ -179,3 +179,17 @@ def test_match_clause_and_scoring():
     summary = run_eval.summarize([s])
     assert summary["recall"] == 1 and summary["false_alarm_rate"] == 0
     assert summary["unmatched_flags"] == 1
+
+
+def test_find_span_matches_reworded_start():
+    text = "6. LATE FEES. A $75 administrative fee applies to all late payments plus $25 per day."
+    # model changed the opening words but kept the middle
+    assert lease_core.find_span(text, "Late charge: $75 administrative fee applies to all late payments, plus $25/day") is not None
+
+
+def test_highlight_pdf_fuzzy_quote():
+    data = make_pdf(lease_core.SAMPLE_LEASE)
+    flags = [{"clause_quote": "a $75 admin fee: $75 administrative fee applies to all late payments, plus $25 per day",
+              "severity": "medium"}]
+    pages, found = lease_core.highlight_pdf(data, flags)
+    assert found == 1
