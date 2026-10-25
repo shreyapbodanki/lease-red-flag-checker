@@ -54,6 +54,7 @@ CSS = """
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;}
 header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
 [data-testid="stStatusWidget"], #MainMenu, footer {display: none !important;}
+[data-testid="stHeaderActionElements"], .stMarkdown h1 a, .stMarkdown h4 a {display: none !important;}
 .block-container {max-width: 1160px !important; padding-top: 2.4rem !important; padding-bottom: 4rem;}
 [data-testid="stElementContainer"]:has(.input-anchor), [data-testid="stElementContainer"]:has(.side-anchor),
 [data-testid="stElementContainer"]:has(.lease-anchor) {display: none;}
