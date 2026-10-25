@@ -11,7 +11,7 @@ Built at **GDG Build with AI × Hacktoberfest 2026** at Virginia Tech (AI for Go
 
 **🔗 Live demo:** https://lease-checker-827970078270.us-east1.run.app
 
-![Lease Red-Flag Checker showing a lease with six highlighted clauses and a fairness score of 17](docs/screenshot.png)
+![Lease Red-Flag Checker showing a lease with six highlighted clauses and a fairness score of 17](docs/Lease_UI.png)
 
 > Not legal advice. This tool points out clauses worth a second look; it doesn't replace a lawyer or your local tenant resources.
 
